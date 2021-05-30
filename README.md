@@ -2,7 +2,7 @@
 
 Documentation is under construction.
 
-Simple docker container with a built in route53 update script originally designed to be used with a Kubernetes cronjob though could be used stand alone. Take a look at [scripts/update-route53](scripts/update-route53) for details of how it runs. 
+Simple docker container with a built in route53 update script. Originally designed to be used in a Kubernetes cronjob though could be used stand alone. Take a look at [scripts/update-route53](scripts/update-route53) for details of how it runs. 
 
 ## Basic Usage
 
