@@ -38,4 +38,4 @@ jobs:
         platforms: linux/amd64,linux/arm64
         push: true
         tags: |
-          ghcr.io/WRMilling/route53-ddns:latest
+          ghcr.io/wrmilling/route53-ddns:latest
