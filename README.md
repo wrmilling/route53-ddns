@@ -13,3 +13,7 @@ docker run -e AWS_ACCESS_KEY_ID='' -e AWS_SECRET_ACCESS_KEY='' -e RECORDSET='' -
 * `AWS_SECRET_ACCESS_KEY` is the corresponding secret key for the above key id
 * `RECORDSET` is the FQDN you are trying to update
 * `ZONEID` is the hosted zone ID for your domain
+
+## Example Uage in K8S
+
+You can find an example usage of this package in my GitOps repo here: [WRMilling/k3s-gitops/kube-system/dynamic-dns/cronjob.yaml](https://github.com/WRMilling/k3s-gitops/blob/master/kube-system/dynamic-dns/cronjob.yaml).
