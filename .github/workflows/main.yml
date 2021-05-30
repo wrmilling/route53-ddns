@@ -28,7 +28,7 @@ jobs:
     - name: Prepare
       id: prep
       run: |
-        VERSION=dev
+        VERSION=latest
         if [[ $GITHUB_REF == refs/tags/v* ]]; then
           VERSION=${GITHUB_REF#refs/tags/}
         fi
