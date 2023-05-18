@@ -1,0 +1,15 @@
+image: alpine/edge
+secrets:
+- 57c56c7c-94fb-4340-a0a4-19cf2ad1d179
+sources:
+- https://git.sr.ht/~wrmilling/route53-ddns
+tasks:
+- push: |
+    # Ensure we are on the main branch, exit build if not
+    cd route53-ddns
+    git diff -s --exit-code origin/main || complete-build
+
+    # Push copy of code to GitHub
+    ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+    git remote add github git@github.com:wrmilling/route53-ddns.git
+    git push github main
