@@ -1,6 +1,6 @@
 image: alpine/edge
 secrets:
-- 57c56c7c-94fb-4340-a0a4-19cf2ad1d179
+- 5d86d71c-f8e6-4e19-9eda-5aa45d8b5800 
 sources:
 - https://git.sr.ht/~wrmilling/route53-ddns
 tasks:
@@ -13,3 +13,8 @@ tasks:
     ssh-keyscan -H github.com >> ~/.ssh/known_hosts
     git remote add github git@github.com:wrmilling/route53-ddns.git
     git push github main
+
+    # Push copy of code to Codeberg
+    ssh-keyscan -H codeberg.org >> ~/.ssh/known_hosts
+    git remote add codeberg git@codeberg.org:wrmilling/route53-ddns.git
+    git push codeberg master
