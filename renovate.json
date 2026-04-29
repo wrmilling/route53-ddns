@@ -1,3 +1,28 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json"
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "packageRules": [
+    {
+      "matchDepTypes": [
+        "action"
+      ],
+      "pinDigests": true
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|\\/)(\\.github|\\.forgejo)\\/workflows\\/.*\\.ya?ml$/"
+      ],
+      "matchStringsStrategy": "any",
+      "matchStrings": [
+        "uses:\\s*\\$\\{\\{\\s*github\\.server_url\\s*\\}\\}\\/(?<depName>actions\\/[^@\\s]+)@(?<currentDigest>[a-f0-9]{40})\\s+#\\s+(?<currentValue>[^\\s]+)\\s*(?:\\r\\n|\\r|\\n|$)",
+        "uses:\\s*\\$\\{\\{\\s*github\\.server_url\\s*\\}\\}\\/(?<depName>actions\\/[^@\\s]+)@(?<currentValue>[^\\s#]+)\\s*(?:\\r\\n|\\r|\\n|$)"
+      ],
+      "depTypeTemplate": "action",
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "semver-coerced",
+      "autoReplaceStringTemplate": "uses: ${{ github.server_url }}/{{{depName}}}@{{{newDigest}}} # {{{newValue}}}"
+    }
+  ]
 }
