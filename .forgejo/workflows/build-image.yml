@@ -42,12 +42,12 @@ jobs:
 
         if [ "${{github.event_name}}" == "pull_request" ]; then
           echo ::set-output name=push::false
-          # echo ::set-output name=cache_from::"type=registry,ref=${REGISTRY_IMAGE}:buildcache"
-          # echo ::set-output name=cache_to::""
+          echo ::set-output name=cache_from::"type=registry,ref=${REGISTRY_IMAGE}:buildcache"
+          echo ::set-output name=cache_to::""
         else
           echo ::set-output name=push::true
-          # echo ::set-output name=cache_from::"type=registry,ref=${REGISTRY_IMAGE}:buildcache"
-          # echo ::set-output name=cache_to::"type=registry,ref=${REGISTRY_IMAGE}:buildcache,mode=max"
+          echo ::set-output name=cache_from::"type=registry,ref=${REGISTRY_IMAGE}:buildcache"
+          echo ::set-output name=cache_to::"type=registry,ref=${REGISTRY_IMAGE}:buildcache,mode=max"
         fi
 
     - name: Set up QEMU
@@ -83,8 +83,8 @@ jobs:
         tags: ${{ steps.prep.outputs.tags }}
         build-args: |
           IMAGE_SOURCE=$GITHUB_SERVER_URL/${{ github.repository }}
-        # cache-from: ${{ steps.prep.outputs.cache_from }}
-        # cache-to: ${{ steps.prep.outputs.cache_to }}
+        cache-from: ${{ steps.prep.outputs.cache_from }}
+        cache-to: ${{ steps.prep.outputs.cache_to }}
 
     - name: Image digest
       run: echo ${{ steps.docker_build.outputs.digest }}

@@ -3,7 +3,7 @@ FROM ubuntu:26.04
 ARG TARGETPLATFORM
 ARG BUILDPLATFORM
 
-RUN apt-get update && apt-get install -y bash dnsutils curl wget unzip jq && \
+RUN apt-get update && apt-get install -y bash dnsutils curl unzip jq && \
     if [ ${TARGETPLATFORM} = 'linux/amd64' ]; then export DOWNLOAD_ARCH=x86_64; fi && \
     if [ ${TARGETPLATFORM} = 'linux/arm64' ]; then export DOWNLOAD_ARCH=aarch64; fi && \
     if [ -z "$DOWNLOAD_ARCH"]; then exit 1; fi && \
