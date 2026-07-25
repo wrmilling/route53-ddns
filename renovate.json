@@ -6,6 +6,14 @@
         "action"
       ],
       "pinDigests": true
+    },
+    {
+      "matchDepNames": [
+        "actions/upload-artifact",
+        "actions/download-artifact"
+      ],
+      "allowedVersions": "<4.0.0",
+      "description": "v4+ requires the Actions Results backend, which this Forgejo instance doesn't support (GHESNotSupportedError) - stay on v3.x"
     }
   ]
 }

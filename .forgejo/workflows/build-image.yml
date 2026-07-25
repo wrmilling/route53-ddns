@@ -13,13 +13,15 @@ on:
     - reopened
 
 jobs:
-  build:
+  prepare:
     runs-on: alpine-tokyo
     if: "!contains(github.event.head_commit.message, '[ci-skip]')"
+    outputs:
+      registry_image: ${{ steps.prep.outputs.registry_image }}
+      registry_server: ${{ steps.prep.outputs.registry_server }}
+      tags: ${{ steps.prep.outputs.tags }}
+      push: ${{ steps.prep.outputs.push }}
     steps:
-    - name: Checkout
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
     - name: Prepare
       id: prep
       run: |
@@ -37,23 +39,32 @@ jobs:
           # :v1.0.0,:v1,:latest
           TAGS="${TAGS},${REGISTRY_IMAGE}:latest"
         fi
-        echo ::set-output name=tags::${TAGS}
+
+        echo ::set-output name=registry_image::${REGISTRY_IMAGE}
         echo ::set-output name=registry_server::${REGISTRY_SERVER}
+        echo ::set-output name=tags::${TAGS}
 
         if [ "${{github.event_name}}" == "pull_request" ]; then
           echo ::set-output name=push::false
-          echo ::set-output name=cache_from::"type=registry,ref=${REGISTRY_IMAGE}:buildcache"
-          echo ::set-output name=cache_to::""
         else
           echo ::set-output name=push::true
-          echo ::set-output name=cache_from::"type=registry,ref=${REGISTRY_IMAGE}:buildcache"
-          echo ::set-output name=cache_to::"type=registry,ref=${REGISTRY_IMAGE}:buildcache,mode=max"
         fi
 
-    - name: Set up QEMU
-      uses: actions/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
-      with:
-        platforms: all
+  build:
+    needs: prepare
+    strategy:
+      matrix:
+        include:
+        - platform: linux/amd64
+          runner: x86_64-linux
+          arch: amd64
+        - platform: linux/arm64
+          runner: aarch64-linux
+          arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
     - name: Set up Docker Buildx
       id: buildx
@@ -64,27 +75,108 @@ jobs:
         driver-opts: image=moby/buildkit:master
 
     - name: Login to GitHub Container Registry
-      if: github.event_name != 'pull_request'
+      if: needs.prepare.outputs.push == 'true'
       uses: actions/docker-login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
       with:
-        registry: ${{ steps.prep.outputs.registry_server }}
+        registry: ${{ needs.prepare.outputs.registry_server }}
         username: ${{ secrets.REG_USERNAME }}
         password: ${{ secrets.REG_TOKEN }}
 
-    - name: Build and Push
+    - name: Build and push by digest
       id: docker_build
+      if: needs.prepare.outputs.push == 'true'
       uses: actions/docker-build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
       with:
         builder: ${{ steps.buildx.outputs.name }}
         context: .
         file: ./Dockerfile
-        platforms: linux/amd64,linux/arm64
-        push: ${{ steps.prep.outputs.push }}
-        tags: ${{ steps.prep.outputs.tags }}
+        platforms: ${{ matrix.platform }}
+        outputs: type=image,name=${{ needs.prepare.outputs.registry_image }},push-by-digest=true,name-canonical=true,push=true
         build-args: |
           IMAGE_SOURCE=$GITHUB_SERVER_URL/${{ github.repository }}
-        cache-from: ${{ steps.prep.outputs.cache_from }}
-        cache-to: ${{ steps.prep.outputs.cache_to }}
+        cache-from: type=registry,ref=${{ needs.prepare.outputs.registry_image }}:buildcache-${{ matrix.arch }}
+
+    - name: Update build cache (best-effort)
+      if: needs.prepare.outputs.push == 'true'
+      continue-on-error: true
+      uses: actions/docker-build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+      with:
+        builder: ${{ steps.buildx.outputs.name }}
+        context: .
+        file: ./Dockerfile
+        platforms: ${{ matrix.platform }}
+        outputs: type=cacheonly
+        build-args: |
+          IMAGE_SOURCE=$GITHUB_SERVER_URL/${{ github.repository }}
+        cache-from: type=registry,ref=${{ needs.prepare.outputs.registry_image }}:buildcache-${{ matrix.arch }}
+        cache-to: type=registry,ref=${{ needs.prepare.outputs.registry_image }}:buildcache-${{ matrix.arch }},mode=min
+
+    - name: Build (validate only)
+      id: docker_build_validate
+      if: needs.prepare.outputs.push != 'true'
+      uses: actions/docker-build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+      with:
+        builder: ${{ steps.buildx.outputs.name }}
+        context: .
+        file: ./Dockerfile
+        platforms: ${{ matrix.platform }}
+        push: false
+        build-args: |
+          IMAGE_SOURCE=$GITHUB_SERVER_URL/${{ github.repository }}
+        cache-from: type=registry,ref=${{ needs.prepare.outputs.registry_image }}:buildcache-${{ matrix.arch }}
+
+    - name: Export digest
+      if: needs.prepare.outputs.push == 'true'
+      run: |
+        mkdir -p /tmp/digests
+        digest="${{ steps.docker_build.outputs.digest }}"
+        touch "/tmp/digests/${digest#sha256:}"
+
+    - name: Upload digest
+      if: needs.prepare.outputs.push == 'true'
+      uses: actions/upload-artifact@c6a366c94c3e0affe28c06c8df20a878f24da3cf # v3.2.2
+      with:
+        name: digests-${{ matrix.arch }}
+        path: /tmp/digests/*
+        if-no-files-found: error
+        retention-days: 1
 
     - name: Image digest
+      if: needs.prepare.outputs.push == 'true'
       run: echo ${{ steps.docker_build.outputs.digest }}
+
+  merge:
+    needs: [prepare, build]
+    if: needs.prepare.outputs.push == 'true'
+    runs-on: alpine-tokyo
+    steps:
+    - name: Download digests
+      uses: actions/download-artifact@a9bc5e6ef2cb54c177f32aa5726adaa15e7e2d59 # v3.1.0
+      with:
+        path: /tmp/digests
+
+    - name: Login to GitHub Container Registry
+      uses: actions/docker-login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+      with:
+        registry: ${{ needs.prepare.outputs.registry_server }}
+        username: ${{ secrets.REG_USERNAME }}
+        password: ${{ secrets.REG_TOKEN }}
+
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: actions/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      with:
+        install: true
+        version: latest
+        driver-opts: image=moby/buildkit:master
+
+    - name: Create manifest list and push
+      run: |
+        docker buildx imagetools create \
+          $(echo "${{ needs.prepare.outputs.tags }}" | tr ',' '\n' | sed 's/^/-t /' | tr '\n' ' ') \
+          $(find /tmp/digests -type f -exec basename {} \; | sed "s#^#${{ needs.prepare.outputs.registry_image }}@sha256:#")
+
+    - name: Inspect image
+      run: |
+        FIRST_TAG=$(echo "${{ needs.prepare.outputs.tags }}" | cut -d',' -f1)
+        docker buildx imagetools inspect ${FIRST_TAG}
